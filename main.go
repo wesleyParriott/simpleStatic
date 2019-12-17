@@ -26,6 +26,13 @@ the defaults are like this:
 	fmt.Println(usage)
 }
 
+func loggingMiddleWare(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		infof("%s from %s at %s", r.Method, r.Host, r.URL)
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	configFilePath := ""
 
@@ -51,7 +58,10 @@ func main() {
 
 	setLogFile(logFilePath)
 	infof("simpleStatic is Serving from %s on :%s", staticDirectory, port)
-	err := http.ListenAndServe(":"+port, http.FileServer(http.Dir(staticDirectory)))
+	// err := http.ListenAndServe(":"+port, http.FileServer(http.Dir(staticDirectory)))
+
+	err := http.ListenAndServe(":"+port, loggingMiddleWare(http.FileServer(http.Dir(staticDirectory))))
+
 	if err != nil {
 		fatal(err.Error())
 	}
