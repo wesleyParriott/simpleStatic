@@ -1,9 +1,12 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"os"
+
+	"golang.org/x/crypto/acme/autocert"
 )
 
 const version = "0.1.0"
@@ -54,13 +57,35 @@ func main() {
 	logFilePath := configs["log_file_path"]
 
 	// NOTE:
-	// if setLogFile is given a empty string it defaults to sdout
-
+	// if setLogFile is given a empty string it defaults to stdout
 	setLogFile(logFilePath)
 	infof("simpleStatic is Serving from %s on :%s", staticDirectory, port)
-	// err := http.ListenAndServe(":"+port, http.FileServer(http.Dir(staticDirectory)))
 
-	err := http.ListenAndServe(":"+port, loggingMiddleWare(http.FileServer(http.Dir(staticDirectory))))
+	httpsManager := &autocert.Manager{
+		Cache:      autocert.DirCache("/home/wesley/go/src/simpleStatic/testcache"),
+		Prompt:     autocert.AcceptTOS,
+		HostPolicy: autocert.HostWhitelist("localhost.com"),
+	}
+
+	// NOTE:
+	// we could make the error logger the logger in the log file
+	// there's a global variable named logger
+	// shouldn't bite me in the ass
+	server := &http.Server{
+		// Addr: ":https",
+		Addr: ":443",
+		// TLSConfig: httpsManager.TLSConfig(),
+		TLSConfig: &tls.Config{
+			ServerName:     "localhost",
+			GetCertificate: httpsManager.GetCertificate,
+		},
+		Handler:  loggingMiddleWare(http.FileServer(http.Dir(staticDirectory))),
+		ErrorLog: logger,
+	}
+
+	err := server.ListenAndServeTLS("", "")
+
+	// err := http.ListenAndServe(":"+port, loggingMiddleWare(http.FileServer(http.Dir(staticDirectory))))
 
 	if err != nil {
 		fatal(err.Error())
